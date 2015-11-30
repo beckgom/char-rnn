@@ -148,10 +148,12 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     print('creating vocabulary mapping...')
     -- record all characters to a set
     local unordered = {}
+    local len = 0
     rawdata = f:read(cache_len)
     repeat
-        for char in rawdata:gmatch'.' do -- gmatch는 형식으로 스플릿하는 함수인데 여기서는 `.`이니 캐릭터 단위로 분해
+        for char in string.gfind(rawdata, "([%z\1-\127\194-\244][\128-\191]*)") do -- gmatch는 형식으로 스플릿하는 함수인데 여기서는 `.`이니 캐릭터 단위로 분해
             if not unordered[char] then unordered[char] = true end
+            len = len + 1
         end
         tot_len = tot_len + #rawdata
         rawdata = f:read(cache_len)
@@ -171,15 +173,15 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
          여기에는 원래 텍스트의 캐릭터를 vocab에 의한 int의 sequence로 바꿔주는 것
     ]]--
     print('putting data into tensor...')
-    local data = torch.ByteTensor(tot_len) -- store it into 1D first, then rearrange
+    local data = torch.ShortTensor(len) -- store it into 1D first, then rearrange
+    local pos = 1
     f = assert(io.open(in_textfile, "r"))
-    local currlen = 0
     rawdata = f:read(cache_len)
     repeat
-        for i=1, #rawdata do
-            data[currlen+i] = vocab_mapping[rawdata:sub(i, i)] -- lua has no string indexing using []
+        for char in string.gfind(rawdata, "([%z\1-\127\194-\244][\128-\191]*)") do
+            data[pos] = vocab_mapping[char]
+            pos = pos + 1
         end
-        currlen = currlen + #rawdata
         rawdata = f:read(cache_len)
     until not rawdata
     f:close()
