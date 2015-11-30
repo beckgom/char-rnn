@@ -221,6 +221,7 @@ function prepro(x,y)
 end
 
 -- evaluate the loss over an entire split
+-- 훈련한 모델을 이용해서 주어진 split_index에 해당하는 DB를 돌려서 그에 대한 loss를 리턴하는 함수.
 function eval_split(split_index, max_batches)
     print('evaluating loss over split index ' .. split_index)
     local n = loader.split_sizes[split_index]
@@ -253,6 +254,7 @@ function eval_split(split_index, max_batches)
 end
 
 -- do fwd/bwd and return loss, grad_params
+-- 실제 돌아가는 함수. 여기에 forward/backward 모두 구현해주어야 한다.
 local init_state_global = clone_list(init_state)
 function feval(x)
     if x ~= params then
@@ -269,7 +271,7 @@ function feval(x)
     local loss = 0
     for t=1,opt.seq_length do
         clones.rnn[t]:training() -- make sure we are in correct mode (this is cheap, sets flag)
-        local lst = clones.rnn[t]:forward{x[t], unpack(rnn_state[t-1])}
+        local lst = clones.rnn[t]:forward{x[t], unpack(rnn_state[t-1])} -- unpack은 각각 데이터 분할하여 삽입 {10,20}=> 10, 20
         rnn_state[t] = {}
         for i=1,#init_state do table.insert(rnn_state[t], lst[i]) end -- extract the state, without output
         predictions[t] = lst[#lst] -- last element is the prediction
@@ -339,7 +341,7 @@ for i = 1, iterations do
     -- every now and then or on last iteration
     if i % opt.eval_val_every == 0 or i == iterations then
         -- evaluate loss on validation data
-        local val_loss = eval_split(2) -- 2 = validation
+        local val_loss = eval_split(2) -- 2 = validation (lua가 1부터 인덱싱이라서 그러함. 아 헷깔린다.)
         val_losses[i] = val_loss
 
         local savefile = string.format('%s/lm_%s_epoch%.2f_%.4f.t7', opt.checkpoint_dir, opt.savefile, epoch, val_loss)
