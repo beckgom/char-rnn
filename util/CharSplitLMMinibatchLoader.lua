@@ -6,14 +6,15 @@ local CharSplitLMMinibatchLoader = {}
 CharSplitLMMinibatchLoader.__index = CharSplitLMMinibatchLoader
 
 function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, split_fractions)
-    -- split_fractions is e.g. {0.9, 0.05, 0.05}
+    -- split_fractions is e.g. {0.9, 0.05, 0.05} 
+                        -- training, valid, test size ratio
 
     local self = {}
     setmetatable(self, CharSplitLMMinibatchLoader)
 
-    local input_file = path.join(data_dir, 'input.txt')
-    local vocab_file = path.join(data_dir, 'vocab.t7')
-    local tensor_file = path.join(data_dir, 'data.t7')
+    local input_file = path.join(data_dir, 'input.txt') -- input
+    local vocab_file = path.join(data_dir, 'vocab.t7') -- output (dictionary)
+    local tensor_file = path.join(data_dir, 'data.t7') -- output
 
     -- fetch file attributes to determine if we need to rerun preprocessing
     local run_prepro = false
@@ -24,9 +25,11 @@ function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, spl
     else
         -- check if the input file was modified since last time we 
         -- ran the prepro. if so, we have to rerun the preprocessing
+        -- lfs.attributes() 루아 파일 정보 읽어오기 (https://keplerproject.github.io/luafilesystem/manual.html)
         local input_attr = lfs.attributes(input_file)
         local vocab_attr = lfs.attributes(vocab_file)
         local tensor_attr = lfs.attributes(tensor_file)
+        -- 입력 파일이 생성된 것이 사전이 텐서보다 늦을 경우 이 둘을 다시 생성.
         if input_attr.modification > vocab_attr.modification or input_attr.modification > tensor_attr.modification then
             print('vocab.t7 or data.t7 detected as stale. Re-running preprocessing...')
             run_prepro = true
