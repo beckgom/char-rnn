@@ -64,6 +64,8 @@ function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, spl
     local ydata = data:clone()
     ydata:sub(1,-2):copy(data:sub(2,-1))
     ydata[-1] = data[1]
+    -- 실제 x_batches, y_batches에 들어가는데 이게 왜 둘로 나눠서 들어가는지 모르겠다.
+    -- 아, x는 입력으로 쓰고 y는 출력으로 쓰는구나, 그래서 하나씩 shift 시켜서 답을 가져오는 걸로 함.
     self.x_batches = data:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
     self.nbatches = #self.x_batches
     self.y_batches = ydata:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
@@ -75,6 +77,9 @@ function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, spl
     end
 
     -- perform safety checks on split_fractions
+    -- DB를 훈련, 검증, 테스트용 으로 생성하는 부분.
+    -- 위의 comments에서는 90:5:5 비율로 되어 있는데, 실제 들어오는 값은
+    -- 95:5:0 으로 들어옴.
     assert(split_fractions[1] >= 0 and split_fractions[1] <= 1, 'bad split fraction ' .. split_fractions[1] .. ' for train, not between 0 and 1')
     assert(split_fractions[2] >= 0 and split_fractions[2] <= 1, 'bad split fraction ' .. split_fractions[2] .. ' for val, not between 0 and 1')
     assert(split_fractions[3] >= 0 and split_fractions[3] <= 1, 'bad split fraction ' .. split_fractions[3] .. ' for test, not between 0 and 1')
@@ -123,6 +128,10 @@ function CharSplitLMMinibatchLoader:next_batch(split_index)
 end
 
 -- *** STATIC method ***
+-- 텍스트 파일을 읽어서 텐서 변수에 넣는 부분. 실제로 텐서에 넣어서 
+-- 보캡하고 탠서 파일로 저장.
+--[[ vocab의 경우 텍스트를 캐시 사이즈로 읽어서 캐릭터 단위로 잘라서 처리한다. 다 자르고 나면 dict 만들어서 vocab에 int 변환을 해줌
+      중간에 ordering하고 안하고는 크게 차이는 없음.]]--
 function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, out_tensorfile)
     local timer = torch.Timer()
 
@@ -138,7 +147,7 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     local unordered = {}
     rawdata = f:read(cache_len)
     repeat
-        for char in rawdata:gmatch'.' do
+        for char in rawdata:gmatch'.' do -- gmatch는 형식으로 스플릿하는 함수인데 여기서는 `.`이니 캐릭터 단위로 분해
             if not unordered[char] then unordered[char] = true end
         end
         tot_len = tot_len + #rawdata
@@ -155,6 +164,9 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
         vocab_mapping[char] = i
     end
     -- construct a tensor with all the data
+    --[[ vocab 만들 때 썼던 내용 닫고 다시 동일한 파일 열기
+         여기에는 원래 텍스트의 캐릭터를 vocab에 의한 int의 sequence로 바꿔주는 것
+    ]]--
     print('putting data into tensor...')
     local data = torch.ByteTensor(tot_len) -- store it into 1D first, then rearrange
     f = assert(io.open(in_textfile, "r"))

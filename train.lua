@@ -113,9 +113,11 @@ local vocab_size = loader.vocab_size  -- the number of distinct characters
 local vocab = loader.vocab_mapping
 print('vocab size: ' .. vocab_size)
 -- make sure output directory exists
-if not path.exists(opt.checkpoint_dir) then lfs.mkdir(opt.checkpoint_dir) end
+if not path.exists(opt.checkpoint_dir) then 
+    lfs.mkdir(opt.checkpoint_dir) end
 
 -- define the model: prototypes for one timestep, then clone them in time
+-- 초기 모델이 있으면 그 정보를 활용하고, 아니면 새로 만들어서 사용
 local do_random_init = true
 if string.len(opt.init_from) > 0 then
     print('loading a model from checkpoint ' .. opt.init_from)
@@ -162,7 +164,7 @@ for L=1,opt.num_layers do
     if opt.gpuid >=0 and opt.opencl == 1 then h_init = h_init:cl() end
     table.insert(init_state, h_init:clone())
     if opt.model == 'lstm' then
-        table.insert(init_state, h_init:clone())
+        table.insert(init_state, h_init:clone()) -- LSTM의 경우 똑같은 사이즈로 하나를 더 추가한다.
     end
 end
 
